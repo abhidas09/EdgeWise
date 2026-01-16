@@ -134,4 +134,85 @@ CREATE TABLE model_versions (
   id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   name            text NOT NULL UNIQUE,
   created_at      timestamptz NOT NULL DEFAULT now(),
-  features_schema js_
+  features_schema jsonb NOT NULL DEFAULT '{}'::jsonb,
+  artifact_uri    text,
+  notes           text
+);
+
+CREATE TABLE prop_scores (
+  id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  prop_offer_id   uuid NOT NULL REFERENCES prop_offers(id) ON DELETE CASCADE,
+  model_version_id uuid NOT NULL REFERENCES model_versions(id),
+  scored_at       timestamptz NOT NULL DEFAULT now(),
+  hit_probability numeric NOT NULL CHECK (hit_probability >= 0 AND hit_probability <= 1),
+  expected_value  numeric NOT NULL,
+  edge            numeric,
+  confidence      numeric CHECK (confidence IS NULL OR (confidence >= 0 AND confidence <= 1)),
+  features        jsonb NOT NULL DEFAULT '{}'::jsonb,
+  UNIQUE (prop_offer_id, model_version_id)
+);
+
+-- -------------------------
+-- RECOMMENDATIONS
+-- -------------------------
+CREATE TABLE recommendation_runs (
+  id         uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id    uuid REFERENCES users(id),
+  created_at timestamptz NOT NULL DEFAULT now(),
+  sport_code text NOT NULL DEFAULT 'nba',
+  criteria   jsonb NOT NULL DEFAULT '{}'::jsonb
+);
+
+CREATE TABLE recommended_props (
+  id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  run_id        uuid NOT NULL REFERENCES recommendation_runs(id) ON DELETE CASCADE,
+  prop_offer_id uuid NOT NULL REFERENCES prop_offers(id) ON DELETE CASCADE,
+  prop_score_id uuid NOT NULL REFERENCES prop_scores(id) ON DELETE CASCADE,
+  rank          integer NOT NULL,
+  reason        text
+);
+
+-- -------------------------
+-- USER ACTIONS
+-- -------------------------
+CREATE TABLE saved_props (
+  id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id       uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  prop_offer_id uuid NOT NULL REFERENCES prop_offers(id) ON DELETE CASCADE,
+  created_at    timestamptz NOT NULL DEFAULT now(),
+  tag           text
+);
+
+-- -------------------------
+-- CHAT (AI AUDITABILITY)
+-- -------------------------
+CREATE TABLE chat_threads (
+  id         uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id    uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  title      text
+);
+
+CREATE TABLE chat_messages (
+  id         uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  thread_id  uuid NOT NULL REFERENCES chat_threads(id) ON DELETE CASCADE,
+  role       text NOT NULL CHECK (role IN ('user','assistant','tool')),
+  content    text NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  metadata   jsonb NOT NULL DEFAULT '{}'::jsonb
+);
+
+CREATE TABLE tool_calls (
+  id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  message_id  uuid NOT NULL REFERENCES chat_messages(id) ON DELETE CASCADE,
+  tool_name   text NOT NULL,
+  args        jsonb NOT NULL DEFAULT '{}'::jsonb,
+  result      jsonb NOT NULL DEFAULT '{}'::jsonb,
+  created_at  timestamptz NOT NULL DEFAULT now()
+);
+
+-- Helpful indexes (optional but recommended early)
+CREATE INDEX idx_events_start_time ON events(start_time);
+CREATE INDEX idx_prop_offers_event_player_market ON prop_offers(event_id, player_id, market_id);
+CREATE INDEX idx_prop_scores_offer ON prop_scores(prop_offer_id);
+CREATE INDEX idx_chat_messages_thread_created ON chat_messages(thread_id, created_at);

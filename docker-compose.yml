@@ -1,0 +1,18 @@
+version: "3.9"
+
+services:
+  db:
+    image: postgres:15
+    container_name: edgewise_db
+    environment:
+      POSTGRES_USER: edgewise
+      POSTGRES_PASSWORD: edgewise_pw
+      POSTGRES_DB: edgewise_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./infra/db/migrations:/docker-entrypoint-initdb.d:ro
+      - edgewise_pgdata:/var/lib/postgresql/data
+
+volumes:
+  edgewise_pgdata:
