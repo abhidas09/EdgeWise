@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.pyc
+
+# Python bytecode (ignore everywhere)
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+
+# Virtual environments
+.venv/
+venv/
+
+# Node (later)
+node_modules/
+
+# Env
+.env
+
+# OS
+.DS_Store
+Thumbs.db
